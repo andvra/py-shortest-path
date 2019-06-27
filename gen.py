@@ -104,8 +104,7 @@ def crossover(parents, no_children):
         new_population.append(child)
     return new_population
 
-def mutate(population):
-    p_mutation = 0.5
+def mutate(population,p_mutation):
     for individual in population:
         if random.random()<p_mutation:
             r1 = random.randint(0,len(individual)-1)
@@ -115,10 +114,10 @@ def mutate(population):
             individual[r2]=v1
     return population
 
-def breed(population):
+def breed(population,p_mutation):
     parents = select_parents(population)
     new_population = crossover(parents, len(population))
-    new_population = mutate(new_population)
+    new_population = mutate(new_population, p_mutation)
     return new_population
 
 def draw_nodes(nodes, offset=(0,0)):
@@ -166,6 +165,7 @@ def parse_arguments(argv):
     return no_nodes, fig_shape, use_gfx
 
 if __name__ == "__main__":
+    p_mutation=0.5
     no_nodes, fig_shape, use_gfx = parse_arguments(sys.argv)
     if use_gfx==False:
         print("Using CLI")
@@ -181,7 +181,7 @@ if __name__ == "__main__":
     pygame.init()
     clk = pygame.time.Clock()
     if use_gfx:
-        size = width, height = 1300, 600
+        size = width, height = 1400, 600
         col_bg = (50,50,50)
         col_node = (150,150,150)
         col_line = (100,100,100)
@@ -191,6 +191,7 @@ if __name__ == "__main__":
         txt_best_d, _ = font.render("Shortest: {:.1f}".format(alltime_best_d),col_txt)
         txt_best_gen, _ = font.render("Generation: {}".format(alltime_best_gen),col_txt)
         txt_fps, _ = font.render("FPS")
+        txt_p_mutation, _=font.render("")
 
     running = True
     cur_gen = 1
@@ -201,23 +202,33 @@ if __name__ == "__main__":
                 running = False
             if event.type == pygame.KEYDOWN and event.key==pygame.K_ESCAPE:
                 running = False
+            if event.type == pygame.KEYUP:
+                if event.key == pygame.K_p:
+                    p_mutation = np.minimum(1,p_mutation+0.05)
+                if event.key == pygame.K_o:
+                    p_mutation = np.maximum(0,p_mutation-0.05)
         if use_gfx:
             screen.fill(col_bg)
             screen.blit(txt_fps, (1100,50))
             screen.blit(txt_best_d, (1100,100))
             screen.blit(txt_best_gen, (1100,150))
+            screen.blit(txt_p_mutation, (1100,200))
             draw_edges(best_path,(100,100))
             draw_nodes(nodes,(100,100))
             draw_edges(alltime_best_path, (600,100))
             draw_nodes(nodes,(600,100))
         clk.tick()
-        if last_update+1000<pygame.time.get_ticks():
+        if last_update+500<pygame.time.get_ticks():
             fps = clk.get_fps()
+            last_update=pygame.time.get_ticks()
             if use_gfx:
                 txt_fps, _ = font.render("FPS: {:.1f}".format(fps), col_txt)
+                txt_best_d, _ = font.render("Shortest: {:.1f}".format(alltime_best_d),col_txt)
+                txt_best_gen, _ = font.render("Generation: {}/{}".format(alltime_best_gen,cur_gen),col_txt)
+                txt_p_mutation, _ = font.render("P(mutation): {:.2f}. Keys:o/p".format(p_mutation),col_txt)
             else:
-                print("Shortest: {:.1f} Generation: {} FPS: {:.1f}".format(alltime_best_d,alltime_best_gen,fps),end="\r")
-        population = breed(population)
+                print("Shortest: {:.1f} Generation: {}/{} FPS: {:.1f}".format(alltime_best_d,alltime_best_gen,cur_gen,fps),end="\r")
+        population = breed(population,p_mutation)
         population, best_paths, best_ds = order_by_fitness(nodes, population)
         best_path = best_paths[0]
         best_d = best_ds[0]
@@ -226,9 +237,6 @@ if __name__ == "__main__":
             alltime_best_d=best_d
             alltime_best_path=best_path
             alltime_best_gen = cur_gen
-            if use_gfx:
-                txt_best_d, _ = font.render("Shortest: {:.1f}".format(alltime_best_d),col_txt)
-                txt_best_gen, _ = font.render("Generation: {}".format(alltime_best_gen),col_txt)
         if use_gfx:
             pygame.display.flip()
 
